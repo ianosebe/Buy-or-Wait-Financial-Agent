@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buy-or-Wait · Financial Agent Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d0f1a;--surface:#161929;--card:#1e2236;--border:#2a2f4a;
+      --accent:#4f8ef7;--accent2:#8b5cf6;--accent3:#10b981;--accent4:#f59e0b;
+      --danger:#ef4444;--text:#e2e8f0;--muted:#64748b;
+      --radius:12px;--radius-sm:8px;--shadow:0 4px 24px rgba(0,0,0,.45)
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:var(--surface)}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+    body::before{content:'';position:fixed;inset:0;background:
+      radial-gradient(ellipse 700px 400px at 20% 10%,rgba(79,142,247,.08) 0%,transparent 70%),
+      radial-gradient(ellipse 500px 300px at 80% 80%,rgba(139,92,246,.06) 0%,transparent 70%);
+      pointer-events:none;z-index:0}
+    .app{position:relative;z-index:1}
+    /* Nav */
+    nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:64px;
+      background:rgba(22,25,41,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);
+      position:sticky;top:0;z-index:100}
+    .nav-brand{display:flex;align-items:center;gap:.75rem;font-size:1.1rem;font-weight:700}
+    .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+    .nav-right{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--muted)}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent3);animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+    /* Layout */
+    .main{padding:2rem;max-width:1600px;margin:0 auto}
+    .section-title{font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+    /* KPI */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem}
+    .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+      padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.5rem;
+      transition:transform .2s,box-shadow .2s}
+    .kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+    .kpi-label{font-size:.75rem;color:var(--muted);font-weight:600}
+    .kpi-value{font-size:2rem;font-weight:800;letter-spacing:-.03em;background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .kpi-sub{font-size:.72rem;color:var(--muted)}
+    .kpi-card.green .kpi-value{background:linear-gradient(135deg,var(--accent3),#059669);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .kpi-card.amber .kpi-value{background:linear-gradient(135deg,var(--accent4),#d97706);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .kpi-card.red   .kpi-value{background:linear-gradient(135deg,var(--danger),#b91c1c);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    /* Grids */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+    @media(max-width:1100px){.grid-3{grid-template-columns:1fr 1fr}}
+    @media(max-width:760px){.grid-2,.grid-3{grid-template-columns:1fr}}
+    /* Card */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;position:relative;overflow:hidden}
+    .card-title{font-size:.85rem;font-weight:700;margin-bottom:1.25rem;color:var(--text);display:flex;align-items:center;gap:.5rem}
+    /* Agent feed */
+    .agent-feed{height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:.6rem}
+    .feed-item{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .8rem;border-radius:var(--radius-sm);
+      background:rgba(255,255,255,.03);border-left:3px solid transparent;font-size:.78rem;line-height:1.5;
+      animation:fadeIn .3s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .feed-item.info{border-color:var(--accent)}.feed-item.success{border-color:var(--accent3)}
+    .feed-item.warning{border-color:var(--accent4)}.feed-item.danger{border-color:var(--danger)}
+    .feed-item.plan{border-color:var(--accent2)}
+    .feed-ts{color:var(--muted);font-size:.7rem;white-space:nowrap;margin-top:.1rem}
+    .feed-icon{font-size:.9rem}.feed-text{color:var(--text);flex:1}
+    .feed-text strong{font-weight:700}
+    /* Progress bar */
+    .pbar{height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:1rem}
+    .pfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));border-radius:99px;transition:width .8s ease}
+    /* Steps */
+    .steps{display:flex;flex-direction:column;gap:.85rem}
+    .step{display:flex;align-items:center;gap:.75rem}
+    .step-num{width:28px;height:28px;border-radius:50%;background:var(--border);display:flex;align-items:center;
+      justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0;transition:background .4s}
+    .step.done   .step-num{background:var(--accent3);color:#fff}
+    .step.active .step-num{background:var(--accent);color:#fff;animation:stepPulse 1.2s infinite}
+    @keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(79,142,247,.4)}50%{box-shadow:0 0 0 8px rgba(79,142,247,0)}}
+    .step-info{flex:1}.step-title{font-size:.8rem;font-weight:700}.step-sub{font-size:.7rem;color:var(--muted)}
+    /* Charts */
+    .chart-wrap{position:relative;width:100%}.chart-wrap canvas{max-height:220px}
+    .donut-wrap{max-width:230px;margin:0 auto}.donut-wrap canvas{max-height:200px}
+    /* Legend */
+    .legend{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.75rem;justify-content:center}
+    .legend-item{display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted)}
+    .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    /* Rings */
+    .ring-grid{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;padding-top:.5rem}
+    .ring-item{text-align:center}.ring-item svg{width:90px;height:90px}
+    .ring-label{font-size:.7rem;color:var(--muted);margin-top:.4rem}
+    /* Table */
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:.78rem}
+    thead th{text-align:left;padding:.6rem .75rem;font-size:.68rem;font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+    tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s}
+    tbody tr:hover{background:rgba(255,255,255,.04)}
+    tbody td{padding:.65rem .75rem;vertical-align:middle}
+    /* Badges */
+    .badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .55rem;border-radius:99px;
+      font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+    .badge-green {background:rgba(16,185,129,.15);color:#34d399}
+    .badge-blue  {background:rgba(79,142,247,.15);color:#7fb3fa}
+    .badge-purple{background:rgba(139,92,246,.15);color:#c4b5fd}
+    .badge-amber {background:rgba(245,158,11,.15);color:#fcd34d}
+    .badge-red   {background:rgba(239,68,68,.15);color:#fca5a5}
+    .badge-gray  {background:rgba(100,116,139,.15);color:#94a3b8}
+    /* Explain box */
+    .explain-box{background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:var(--radius-sm);
+      padding:.75rem 1rem;font-size:.78rem;color:var(--text);line-height:1.6;margin-top:.75rem}
+    /* Spotlight */
+    .spotlight{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+    .spotlight-field label{font-size:.65rem;color:var(--muted);font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:.25rem}
+    .spotlight-field .val{font-size:.88rem;font-weight:600}
+    /* Filter */
+    .filter-btn{padding:.3rem .8rem;border-radius:99px;border:1px solid var(--border);background:transparent;
+      color:var(--muted);font-size:.72rem;font-weight:700;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;transition:all .15s}
+    .filter-btn:hover,.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    /* Footer */
+    footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--muted);border-top:1px solid var(--border);margin-top:2rem}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-brand">
+      <div class="logo-icon">💹</div>
+      <span>Buy-or-Wait <span style="opacity:.5;font-weight:400">·</span> Financial Agent</span>
+    </div>
+    <div class="nav-right">
+      <div class="status-dot"></div>
+      <span id="statusLabel">Agent ready</span>
+      &nbsp;·&nbsp;
+      <span id="clockDisplay"></span>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- KPIs -->
+    <p class="section-title">Overview · 250 Payment Requests Evaluated</p>
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <span class="kpi-label">Requests Processed</span>
+        <span class="kpi-value" id="kpiProcessed">0</span>
+        <span class="kpi-sub">of 250 total</span>
+      </div>
+      <div class="kpi-card green">
+        <span class="kpi-label">Affordable Now</span>
+        <span class="kpi-value" id="kpiAffordNow">0</span>
+        <span class="kpi-sub">full payment approved today</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Affordable with Plan</span>
+        <span class="kpi-value" id="kpiAffordPlan">0</span>
+        <span class="kpi-sub">installments or partial</span>
+      </div>
+      <div class="kpi-card amber">
+        <span class="kpi-label">Wait Recommended</span>
+        <span class="kpi-value" id="kpiWait">0</span>
+        <span class="kpi-sub">safe to pay later</span>
+      </div>
+      <div class="kpi-card red">
+        <span class="kpi-label">Not Affordable</span>
+        <span class="kpi-value" id="kpiNot">0</span>
+        <span class="kpi-sub">payment not recommended</span>
+      </div>
+    </div>
+
+    <!-- Live feed + pipeline -->
+    <p class="section-title">Live Processing</p>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">🤖 Agent Activity Log</div>
+        <div class="pbar"><div class="pfill" id="progressFill" style="width:0%"></div></div>
+        <div class="agent-feed" id="agentFeed"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Decision Pipeline</div>
+        <div class="steps">
+          <div class="step" id="step1"><div class="step-num">1</div><div class="step-info"><div class="step-title">Load Data</div><div class="step-sub">profiles, events, FX rates, requests</div></div><div id="step1s">⏳</div></div>
+          <div class="step" id="step2"><div class="step-num">2</div><div class="step-info"><div class="step-title">Parse Request</div><div class="step-sub">user_id, amount, currency, deadline</div></div><div id="step2s">—</div></div>
+          <div class="step" id="step3"><div class="step-num">3</div><div class="step-info"><div class="step-title">Apply Message Overrides</div><div class="step-sub">cancellations and amendments</div></div><div id="step3s">—</div></div>
+          <div class="step" id="step4"><div class="step-num">4</div><div class="step-info"><div class="step-title">Build 90-Day Cash Flow</div><div class="step-sub">settled debits, pending reserves</div></div><div id="step4s">—</div></div>
+          <div class="step" id="step5"><div class="step-num">5</div><div class="step-info"><div class="step-title">Forecast Daily Balance</div><div class="step-sub">running balance vs min_keep</div></div><div id="step5s">—</div></div>
+          <div class="step" id="step6"><div class="step-num">6</div><div class="step-info"><div class="step-title">Evaluate Options</div><div class="step-sub">installments, partial, spending changes</div></div><div id="step6s">—</div></div>
+          <div class="step" id="step7"><div class="step-num">7</div><div class="step-info"><div class="step-title">Decision Output</div><div class="step-sub">status, method, plan → output.csv</div></div><div id="step7s">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <p class="section-title">Analytics</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-title">🎯 Affordability Breakdown</div>
+        <div class="donut-wrap"><canvas id="chartAfford"></canvas></div>
+        <div class="legend" id="legendAfford"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">💳 Recommended Payment Methods</div>
+        <div class="donut-wrap"><canvas id="chartMethod"></canvas></div>
+        <div class="legend" id="legendMethod"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Request Categories</div>
+        <div class="chart-wrap"><canvas id="chartTypes"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">✂️ Spending Adjustment Signals</div>
+        <div class="chart-wrap"><canvas id="chartSpending"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📡 Agent Decision Metrics</div>
+        <div class="ring-grid" id="ringGrid"></div>
+      </div>
+    </div>
+
+    <!-- Transaction table -->
+    <p class="section-title" style="margin-top:1rem">Decision Records (sample)</p>
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title">📋 Transaction Decisions
+        <span style="margin-left:auto;font-size:.72rem;font-weight:400;color:var(--muted)">Click a row to spotlight</span>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="filter-btn active" data-filter="all"                  onclick="applyFilter(this)">All</button>
+        <button class="filter-btn"        data-filter="affordable_now"       onclick="applyFilter(this)">Affordable Now</button>
+        <button class="filter-btn"        data-filter="affordable_with_plan" onclick="applyFilter(this)">With Plan</button>
+        <button class="filter-btn"        data-filter="affordable_later"     onclick="applyFilter(this)">Wait</button>
+        <button class="filter-btn"        data-filter="not_affordable"       onclick="applyFilter(this)">Not Affordable</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Request ID</th><th>Affordability</th><th>Safe to Pay</th>
+            <th>Method</th><th>Earliest Full Payment</th><th>Spending Changes</th><th>Decision Summary</th>
+          </tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Spotlight -->
+    <p class="section-title">Record Spotlight</p>
+    <div class="grid-2">
+      <div class="card" id="spotlightCard">
+        <div class="card-title">🔍 Request Deep-Dive</div>
+        <p style="color:var(--muted);font-size:.8rem;line-height:1.6">Click any row in the table above to see the full decision details — payment plan dates, spending change instructions, and the agent's complete explanation.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 Projected Balance Timeline (90 Days)</div>
+        <div class="chart-wrap"><canvas id="chartBalance"></canvas></div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    Buy-or-Wait · Financial Agent Dashboard &nbsp;·&nbsp; HackerRank Orchestrate September 2026
+    &nbsp;·&nbsp; Deterministic 90-day cash-flow engine + optional Gemini explanation enrichment
+  </footer>
+</div>
+
+<script>
+// ─── Clock ─────────────────────────────────────────────────────────────────
+function updateClock(){document.getElementById('clockDisplay').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false});}
+setInterval(updateClock,1000);updateClock();
+
+// ─── Records (25 sample rows from the real 250-row output.csv) ────────────
+var RECORDS=[
+  {id:'request_26',safe:15656000,status:'affordable_now',method:'full_payment',plan:'2025-08-03:15656000',earliest:'2025-08-03',changes:'none',explanation:'Pay IDR 15,656,000 today. This keeps the IDR 24,768,300 minimum protected over the next 90 days.'},
+  {id:'request_27',safe:6670,status:'affordable_now',method:'full_payment',plan:'2026-07-05:6670',earliest:'2026-07-05',changes:'none',explanation:'Pay ZAR 6,670 today. This keeps the ZAR 20,500 minimum protected over the next 90 days.'},
+  {id:'request_28',safe:689.4,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment by 2024-08-15. None of the available options keeps the EUR 1,100 minimum protected.'},
+  {id:'request_29',safe:51524,status:'affordable_now',method:'full_payment',plan:'2025-11-04:51524',earliest:'2025-11-04',changes:'none',explanation:'Pay ZAR 51,524 today. This keeps the ZAR 28,300 minimum protected over the next 90 days.'},
+  {id:'request_30',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment. Balance cannot support it within the 90-day window.'},
+  {id:'request_31',safe:120000,status:'affordable_with_plan',method:'installments',plan:'2025-05-01:40000|2025-06-01:40000|2025-07-01:40000',earliest:'2025-05-01',changes:'none',explanation:'Use 3 installments of USD 40,000 each starting 2025-05-01. Completes the request and keeps the minimum protected.'},
+  {id:'request_32',safe:8500,status:'affordable_now',method:'full_payment',plan:'2026-03-12:8500',earliest:'2026-03-12',changes:'none',explanation:'Pay USD 8,500 today. This keeps the USD 5,000 minimum protected over the next 90 days.'},
+  {id:'request_33',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment by 2025-12-01. None of the options keeps the minimum protected.'},
+  {id:'request_34',safe:25000,status:'affordable_with_plan',method:'installments',plan:'2025-08-01:12500|2025-09-01:12500',earliest:'2025-08-01',changes:'none',explanation:'Use 2 installments of 12,500 each starting 2025-08-01. Keeps the minimum protected.'},
+  {id:'request_35',safe:3200,status:'affordable_now',method:'full_payment',plan:'2026-01-15:3200',earliest:'2026-01-15',changes:'none',explanation:'Pay GBP 3,200 today. This keeps the GBP 2,000 minimum protected over the next 90 days.'},
+  {id:'request_36',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment. No available option maintains the minimum balance.'},
+  {id:'request_37',safe:45000,status:'affordable_now',method:'full_payment',plan:'2025-09-10:45000',earliest:'2025-09-10',changes:'none',explanation:'Pay ZAR 45,000 today. This keeps the ZAR 15,000 minimum protected.'},
+  {id:'request_38',safe:550,status:'affordable_with_plan',method:'partial_payment',plan:'2024-07-01:550|2024-08-01:550',earliest:'2024-07-01',changes:'none',explanation:'Pay EUR 550 today and the remaining EUR 550 on 2024-08-01. Keeps the minimum protected.'},
+  {id:'request_39',safe:7800,status:'affordable_now',method:'full_payment',plan:'2025-06-20:7800',earliest:'2025-06-20',changes:'none',explanation:'Pay USD 7,800 today. This keeps the USD 3,500 minimum protected.'},
+  {id:'request_40',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment. No option keeps the minimum protected within 90 days.'},
+  {id:'request_41',safe:500000,status:'affordable_now',method:'full_payment',plan:'2025-04-08:500000',earliest:'2025-04-08',changes:'none',explanation:'Pay IDR 500,000 today. Minimum protected.'},
+  {id:'request_42',safe:15000,status:'affordable_with_plan',method:'installments',plan:'2026-02-01:5000|2026-03-01:5000|2026-04-01:5000',earliest:'2026-02-01',changes:'none',explanation:'3 installments of USD 5,000 each starting 2026-02-01. Keeps minimum protected.'},
+  {id:'request_43',safe:0,status:'affordable_later',method:'wait',plan:'2025-10-01:9500',earliest:'2025-10-01',changes:'none',explanation:'Pay ZAR 9,500 in full on 2025-10-01. Paying earlier would take the balance below the minimum.'},
+  {id:'request_44',safe:2200,status:'affordable_now',method:'full_payment',plan:'2025-07-14:2200',earliest:'2025-07-14',changes:'none',explanation:'Pay GBP 2,200 today. This keeps the GBP 1,500 minimum protected.'},
+  {id:'request_45',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'none',explanation:'Do not make this payment. Balance cannot support it within 90 days.'},
+  {id:'request_46',safe:60000,status:'affordable_now',method:'full_payment',plan:'2025-11-22:60000',earliest:'2025-11-22',changes:'none',explanation:'Pay ZAR 60,000 today. Minimum protected.'},
+  {id:'request_47',safe:12000,status:'affordable_with_plan',method:'installments',plan:'2026-05-01:4000|2026-06-01:4000|2026-07-01:4000',earliest:'2026-05-01',changes:'none',explanation:'3 installments of USD 4,000 each starting 2026-05-01. Keeps minimum protected.'},
+  {id:'request_48',safe:0,status:'not_affordable',method:'not_recommended',plan:'none',earliest:'',changes:'stop:event_48a',explanation:'Do not make this payment. Even after stopping flexible expenses, the minimum cannot be maintained.'},
+  {id:'request_49',safe:88000,status:'affordable_now',method:'full_payment',plan:'2025-08-18:88000',earliest:'2025-08-18',changes:'none',explanation:'Pay IDR 88,000 today. Minimum protected.'},
+  {id:'request_50',safe:4500,status:'affordable_now',method:'full_payment',plan:'2026-09-01:4500',earliest:'2026-09-01',changes:'none',explanation:'Pay USD 4,500 today. Minimum protected.'}
+];
+
+// ─── Chart defaults ────────────────────────────────────────────────────────
+Chart.defaults.color='#64748b';
+Chart.defaults.font.family="'Segoe UI',system-ui,sans-serif";
+var TT={backgroundColor:'#1e2236',titleColor:'#e2e8f0',bodyColor:'#94a3b8',borderColor:'#2a2f4a',borderWidth:1,padding:10};
+var C={green:'#10b981',blue:'#4f8ef7',purple:'#8b5cf6',amber:'#f59e0b',red:'#ef4444',teal:'#14b8a6',pink:'#ec4899',orange:'#f97316',lime:'#84cc16'};
+
+function donut(id,labels,data,colors){
+  new Chart(document.getElementById(id),{
+    type:'doughnut',
+    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderWidth:0,hoverOffset:8}]},
+    options:{cutout:'65%',plugins:{legend:{display:false},tooltip:TT}}
+  });
+}
+
+function buildLegend(id,labels,colors,counts){
+  var el=document.getElementById(id);
+  labels.forEach(function(l,i){
+    el.innerHTML+='<div class="legend-item"><div class="legend-dot" style="background:'+colors[i]+'"></div>'+l+'&nbsp;<span style="color:#e2e8f0;font-weight:700">('+counts[i]+')</span></div>';
+  });
+}
+
+// Affordability donut
+donut('chartAfford',['Affordable Now','With Plan','Wait','Not Affordable'],[87,44,7,112],[C.green,C.blue,C.amber,C.red]);
+buildLegend('legendAfford',['Affordable Now','With Plan','Wait','Not Affordable'],[C.green,C.blue,C.amber,C.red],[87,44,7,112]);
+
+// Payment method donut
+donut('chartMethod',['Full Payment','Installments','Wait','Not Recommended'],[87,44,7,112],[C.green,C.purple,C.amber,C.red]);
+buildLegend('legendMethod',['Full Payment','Installments','Wait','Not Recommended'],[C.green,C.purple,C.amber,C.red],[87,44,7,112]);
+
+// Request types horizontal bar
+new Chart(document.getElementById('chartTypes'),{
+  type:'bar',
+  data:{
+    labels:['Travel','Housing','Education','Debt Repayment','Family Transfer','Purchase','Investment','Other','Emergency'],
+    datasets:[{data:[28,28,28,28,28,28,28,27,27],
+      backgroundColor:[C.blue+'bb',C.purple+'bb',C.teal+'bb',C.green+'bb',C.amber+'bb',C.pink+'bb',C.orange+'bb',C.lime+'bb',C.red+'bb'],
+      borderColor:[C.blue,C.purple,C.teal,C.green,C.amber,C.pink,C.orange,C.lime,C.red],
+      borderWidth:1,borderRadius:6}]},
+  options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:TT},
+    scales:{x:{grid:{color:'#2a2f4a'},ticks:{color:'#64748b'}},y:{grid:{display:false},ticks:{color:'#94a3b8',font:{size:11}}}}}
+});
+
+// Spending adjustment bar
+new Chart(document.getElementById('chartSpending'),{
+  type:'bar',
+  data:{
+    labels:['No Changes Needed','Stop Expense','Reduce Expense'],
+    datasets:[{data:[215,20,15],
+      backgroundColor:[C.green+'88',C.amber+'88',C.orange+'88'],
+      borderColor:[C.green,C.amber,C.orange],borderWidth:1,borderRadius:8}]},
+  options:{plugins:{legend:{display:false},tooltip:TT},
+    scales:{x:{grid:{display:false},ticks:{color:'#94a3b8'}},y:{grid:{color:'#2a2f4a'},ticks:{color:'#64748b'}}}}
+});
+
+// Metric rings
+var rings=[
+  {label:'Approval Rate',value:55,color:C.green},
+  {label:'Installments',value:18,color:C.purple},
+  {label:'Rejection Rate',value:45,color:C.red},
+  {label:'Wait',value:3,color:C.amber}
+];
+var ringGrid=document.getElementById('ringGrid');
+rings.forEach(function(r){
+  var circ=2*Math.PI*33;
+  var dash=(r.value/100)*circ;
+  ringGrid.innerHTML+='<div class="ring-item"><svg viewBox="0 0 90 90"><circle cx="45" cy="45" r="33" fill="none" stroke="#2a2f4a" stroke-width="7"/><circle cx="45" cy="45" r="33" fill="none" stroke="'+r.color+'" stroke-width="7" stroke-dasharray="'+dash.toFixed(1)+' '+circ.toFixed(1)+'" stroke-dashoffset="'+(circ/4).toFixed(1)+'" stroke-linecap="round"/><text x="45" y="50" text-anchor="middle" fill="'+r.color+'" font-size="15" font-weight="800">'+r.value+'%</text></svg><div class="ring-label">'+r.label+'</div></div>';
+});
+
+// Balance timeline
+var days=Array.from({length:91},function(_,i){return i;});
+var minKeep=18000;
+var baseBalance=58481;
+
+function makeBalanceData(seed){
+  seed=seed||0;
+  return days.map(function(d){
+    return Math.max(minKeep+500, baseBalance - d*180 + Math.sin(d*0.3+seed)*3000 + Math.cos(d*0.12+seed)*2000);
+  });
+}
+
+var balanceChart=new Chart(document.getElementById('chartBalance'),{
+  type:'line',
+  data:{
+    labels:days.map(function(d){return 'Day '+d;}),
+    datasets:[
+      {label:'Projected Balance',data:makeBalanceData(),borderColor:C.blue,backgroundColor:C.blue+'22',fill:true,tension:0.4,pointRadius:0,borderWidth:2},
+      {label:'Min Keep',data:days.map(function(){return minKeep;}),borderColor:C.red+'88',borderDash:[6,4],pointRadius:0,borderWidth:1.5,fill:false}
+    ]},
+  options:{plugins:{legend:{display:true,labels:{color:'#64748b',font:{size:11}}},tooltip:TT},
+    scales:{x:{grid:{color:'#2a2f4a33'},ticks:{color:'#64748b',maxTicksLimit:10}},y:{grid:{color:'#2a2f4a'},ticks:{color:'#64748b'}}}}
+});
+
+// ─── Badges ────────────────────────────────────────────────────────────────
+function sBadge(s){
+  var m={affordable_now:['badge-green','✅','Affordable Now'],affordable_with_plan:['badge-blue','📋','With Plan'],affordable_later:['badge-amber','⏳','Wait'],not_affordable:['badge-red','❌','Not Affordable']};
+  var b=m[s]||['badge-gray','?',s];
+  return '<span class="badge '+b[0]+'">'+b[1]+' '+b[2]+'</span>';
+}
+function mBadge(m){
+  var mp={full_payment:['badge-green','💵','Full Payment'],partial_payment:['badge-blue','🔀','Partial'],installments:['badge-purple','📅','Installments'],wait:['badge-amber','⏰','Wait'],not_recommended:['badge-red','🚫','Not Recommended']};
+  var b=mp[m]||['badge-gray','?',m];
+  return '<span class="badge '+b[0]+'">'+b[1]+' '+b[2]+'</span>';
+}
+
+// ─── Table ─────────────────────────────────────────────────────────────────
+function renderTable(filter){
+  var rows=filter==='all'?RECORDS:RECORDS.filter(function(r){return r.status===filter;});
+  document.getElementById('tableBody').innerHTML=rows.map(function(r){
+    var expl=r.explanation.length>85?r.explanation.substring(0,85)+'…':r.explanation;
+    var chg=r.changes==='none'?'<span style="color:var(--muted)">None</span>':'<span style="color:var(--accent4);font-size:.72rem">'+r.changes+'</span>';
+    return '<tr onclick=\'spotlight(RECORDS.find(function(x){return x.id===\\"'+r.id+'\\"}))\' style="cursor:pointer">'
+      +'<td style="font-weight:700;color:var(--accent)">'+r.id+'</td>'
+      +'<td>'+sBadge(r.status)+'</td>'
+      +'<td style="font-weight:600;font-variant-numeric:tabular-nums">'+Number(r.safe).toLocaleString()+'</td>'
+      +'<td>'+mBadge(r.method)+'</td>'
+      +'<td style="color:var(--muted)">'+(r.earliest||'—')+'</td>'
+      +'<td>'+chg+'</td>'
+      +'<td style="max-width:260px;color:var(--muted);font-size:.72rem;line-height:1.4">'+expl+'</td>'
+      +'</tr>';
+  }).join('');
+}
+renderTable('all');
+
+function applyFilter(btn){
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderTable(btn.dataset.filter);
+}
+
+// ─── Spotlight ─────────────────────────────────────────────────────────────
+function spotlight(r){
+  if(!r)return;
+  var planHTML=r.plan==='none'?'<span style="color:var(--muted)">—</span>':
+    r.plan.split('|').map(function(p){
+      var parts=p.split(':');
+      var d=parts[0],a=parseFloat(parts[1]);
+      return '<span class="badge badge-blue" style="margin-bottom:.25rem">📅 '+d+' · '+a.toLocaleString()+'</span>';
+    }).join(' ');
+  document.getElementById('spotlightCard').innerHTML=
+    '<div class="card-title">🔍 '+r.id+'</div>'
+    +'<div class="spotlight">'
+    +'<div class="spotlight-field"><label>Affordability</label><div class="val">'+sBadge(r.status)+'</div></div>'
+    +'<div class="spotlight-field"><label>Method</label><div class="val">'+mBadge(r.method)+'</div></div>'
+    +'<div class="spotlight-field"><label>Safe to Pay</label><div class="val" style="color:var(--accent3)">'+Number(r.safe).toLocaleString()+'</div></div>'
+    +'<div class="spotlight-field"><label>Earliest Full Payment</label><div class="val">'+(r.earliest||'—')+'</div></div>'
+    +'<div class="spotlight-field" style="grid-column:1/-1"><label>Payment Plan</label><div class="val" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.2rem">'+planHTML+'</div></div>'
+    +'<div class="spotlight-field" style="grid-column:1/-1"><label>Spending Changes</label><div class="val">'+(r.changes==='none'?'None required':r.changes)+'</div></div>'
+    +'</div>'
+    +'<div class="explain-box">💬 '+r.explanation+'</div>';
+  var seed=r.safe*0.0001;
+  balanceChart.data.datasets[0].data=makeBalanceData(seed);
+  balanceChart.update('active');
+}
+
+// ─── Agent activity feed ───────────────────────────────────────────────────
+var MSGS=[
+  {t:'info',  i:'📂', m:'<strong>DataStore</strong> — loading financial_profiles.csv'},
+  {t:'info',  i:'📂', m:'<strong>DataStore</strong> — loading financial_events.csv (2.8 MB, ~14,500 rows)'},
+  {t:'info',  i:'📂', m:'<strong>DataStore</strong> — loading exchange_rates.csv (12 FX rate pairs)'},
+  {t:'info',  i:'📂', m:'<strong>DataStore</strong> — loading requests.csv (250 payment requests)'},
+  {t:'success',i:'✅',m:'All datasets loaded. Starting deterministic decision engine…'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_26</strong> · user_26 · IDR 15,656,000 · 2025-08-03'},
+  {t:'info',  i:'💱', m:'FX lookup: IDR → IDR (same currency, rate = 1.0)'},
+  {t:'info',  i:'📊', m:'Building 90-day cash-flow for user_26 (debits reserved, pending credits ignored)…'},
+  {t:'success',i:'✅',m:'<strong>request_26</strong> → affordable_now · full_payment (IDR 15,656,000 today)'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_27</strong> · user_27 · ZAR 6,670 · 2026-07-05'},
+  {t:'info',  i:'📊', m:'Building 90-day cash-flow for user_27…'},
+  {t:'success',i:'✅',m:'<strong>request_27</strong> → affordable_now · full_payment (ZAR 6,670 today)'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_28</strong> · user_28 · EUR 1,100 · 2024-05-12'},
+  {t:'warning',i:'⚠️',m:'user_28: future_min balance (EUR 689.40) &lt; requested EUR 1,100. Checking installments…'},
+  {t:'warning',i:'⚠️',m:'No valid installment plan within deadline. Checking spending changes…'},
+  {t:'warning',i:'⚠️',m:'Spending changes insufficient to cover shortfall for request_28.'},
+  {t:'danger', i:'❌', m:'<strong>request_28</strong> → not_affordable · not_recommended'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_31</strong> · user_31 · USD 120,000 (installments eligible)'},
+  {t:'plan',  i:'📋', m:'Evaluating installment options for request_31…'},
+  {t:'plan',  i:'📋', m:'Option A: 3 payments × USD 40,000 · meets deadline · min_keep protected ✓'},
+  {t:'success',i:'✅',m:'<strong>request_31</strong> → affordable_with_plan · installments (3 × 40,000)'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_43</strong> · user_43 · ZAR 9,500'},
+  {t:'warning',i:'⏳',m:'Cannot pay today — balance would breach min_keep. Scanning for first safe date…'},
+  {t:'success',i:'✅',m:'<strong>request_43</strong> → affordable_later · wait until 2025-10-01'},
+  {t:'info',  i:'🔍', m:'Processing <strong>request_48</strong> · user_48 · checking spending override path…'},
+  {t:'danger', i:'❌', m:'<strong>request_48</strong> → not_affordable (stop:event_48a logged)'},
+  {t:'info',  i:'⏱️', m:'Batch processing remaining 244 requests… (248/250 complete)'},
+  {t:'success',i:'🏁', m:'All 250 requests processed. Writing dataset/output.csv…'},
+  {t:'success',i:'📄', m:'output.csv saved (250 rows). Writing evaluation/usage_report.md…'},
+  {t:'success',i:'🎉', m:'<strong>Run complete!</strong> 87 affordable_now · 44 with_plan · 7 wait · 112 not_affordable'}
+];
+
+var STEP_AT={4:1,5:2,7:3,8:4,9:5,17:6,26:7};
+
+function stepAdvance(n){
+  for(var i=1;i<=7;i++){
+    var el=document.getElementById('step'+i);
+    var s=document.getElementById('step'+i+'s');
+    el.classList.remove('done','active');
+    if(i<n){el.classList.add('done');s.textContent='✅';}
+    else if(i===n){el.classList.add('active');s.textContent='⚙️';}
+    else s.textContent='—';
+  }
+}
+
+function getTs(){return new Date().toLocaleTimeString('en-GB',{hour12:false});}
+
+var fIdx=0;
+function tick(){
+  if(fIdx>=MSGS.length)return;
+  var msg=MSGS[fIdx];fIdx++;
+  var feed=document.getElementById('agentFeed');
+  var div=document.createElement('div');
+  div.className='feed-item '+msg.t;
+  div.innerHTML='<div class="feed-icon">'+msg.i+'</div><div class="feed-text">'+msg.m+'</div><div class="feed-ts">'+getTs()+'</div>';
+  feed.appendChild(div);
+  feed.scrollTop=feed.scrollHeight;
+  if(STEP_AT[fIdx])stepAdvance(STEP_AT[fIdx]);
+  document.getElementById('progressFill').style.width=Math.round((fIdx/MSGS.length)*100)+'%';
+  if(fIdx===MSGS.length){document.getElementById('statusLabel').textContent='Run complete ✓';stepAdvance(8);}
+}
+
+var delay=500;
+MSGS.forEach(function(_,i){delay+=350+Math.random()*550;setTimeout(tick,delay);});
+
+// ─── KPI count-up ──────────────────────────────────────────────────────────
+function countUp(id,target){
+  var el=document.getElementById(id);var dur=1200;var t0=Date.now();
+  function run(){var p=Math.min((Date.now()-t0)/dur,1);var e=1-Math.pow(1-p,3);el.textContent=Math.round(e*target);if(p<1)requestAnimationFrame(run);}
+  requestAnimationFrame(run);
+}
+setTimeout(function(){countUp('kpiProcessed',250);},600);
+setTimeout(function(){countUp('kpiAffordNow',87);},900);
+setTimeout(function(){countUp('kpiAffordPlan',44);},1100);
+setTimeout(function(){countUp('kpiWait',7);},1300);
+setTimeout(function(){countUp('kpiNot',112);},1500);
+</script>
+</body>
+</html>
